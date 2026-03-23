@@ -119,6 +119,22 @@ func clienteHandler(conn net.Conn) {
 			mu.Unlock()
 			fmt.Fprintf(conn, "[TELEMETRIA] Você parou de receber dados dp sensor.\n")
 
+		case "listar":
+			mu.Lock()
+			var listaSensores []string
+			for sensor := range sensores {
+				listaSensores = append(listaSensores, sensor)
+			}
+			mu.Unlock()
+
+			//Verifica se há sensores ativos no momento
+			if len(listaSensores) == 0 {
+				fmt.Fprintf(conn, "[SISTEMA] Nenhum sensor detectado na rede no momento.\n")
+			} else {
+				//Lista os sensores disponíveis
+				fmt.Fprintf(conn, "[SISTEMA] Sensores disponíveis: %s\n", strings.Join(listaSensores, ", "))
+			}
+
 		case "sair":
 			fmt.Fprintf(conn, "%s saiu do servidor.", nome)
 			delete(clientes, conn)
