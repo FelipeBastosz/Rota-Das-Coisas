@@ -1,10 +1,14 @@
 package main
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
 	"strings"
+	"sync"
+	"time"
 )
 
 type Sensor struct {
@@ -16,10 +20,21 @@ type Sensor struct {
 	Tempo       string  `json:"Tempo"`
 }
 
+// Mapa de sensores ativos funcionando
+var sensores = make(map[string]time.Time)
+
 // Mapa que guarda as conexões dos usuários indexados pelos seus nomes
 var clientes = make(map[net.Conn]string)
 
+// Clientes interessados em escutar os dados dos sensores
+var clientesInteressados = make(map[net.Conn]string)
+var mu sync.Mutex //Vai ser utilizado para proteger o mapa de clientes, impedindo adicionar e retirar clientes
+
 func main() {
+	// Vai ficar escutando paralelamente os dados enviados dos sensores
+	go iniciarServerUDP()
+
+	//Irá rodar o servidor principal, que vai conectar os usuários aos dados e receber comandos
 	iniciarServerTCP()
 }
 
@@ -30,7 +45,7 @@ func iniciarServerTCP() {
 
 	}
 
-	fmt.Println("Servidor TCP está ligado e escutando a porta 8080")
+	fmt.Println("[TCP] Servidor TCP está ligado e escutando a porta 8080")
 
 	for {
 		conn, err := ln.Accept()
@@ -46,7 +61,7 @@ func iniciarServerUDP() {
 	conn, _ := net.ListenUDP("udp", addr)
 	defer conn.Close()
 
-	fmt.Println("[UDP] Escutando porta 5000 (Telemetria)")
+	fmt.Println("[UDP] Servido UDP está ligado e escutando porta 5000")
 
 	buf := make([]byte, 1024)
 	for {
@@ -61,12 +76,13 @@ func iniciarServerUDP() {
 		}
 
 		mu.Lock()
+		sensores[dadosSensor.ID] = time.Now() //Digo qual foi a última vez que o sensor recebeu um dado
+
 		for monitor, filtro := range clientesInteressados {
 			// Envia se o filtro for "todos" ou igual ao ID do sensor
 			if filtro == "todos" || filtro == dadosSensor.ID {
 				fmt.Fprintf(monitor, "[TELEMETRIA] DADOS RECEBIDOS DO SENSOR: %s\n"+
-					"Temperatura: %.2f°C | Pressão: %.2f hPa | Umidade: %.2f%% | Ruído: %.2f dB\n"+
-					"Insira um comando:", dadosSensor.ID, dadosSensor.Temperatura, dadosSensor.Pressao,
+					"Temperatura: %.2f°C | Pressão: %.2f hPa | Umidade: %.2f%% | Ruído: %.2f dB\n", dadosSensor.ID, dadosSensor.Temperatura, dadosSensor.Pressao,
 					dadosSensor.Umidade, dadosSensor.Ruido)
 			}
 		}
@@ -77,27 +93,27 @@ func iniciarServerUDP() {
 func clienteHandler(conn net.Conn) {
 	defer conn.Close()
 
-	buf := make([]byte, 1024)
-	n, err := conn.Read(buf)
-	if err != nil {
-		log.Println("Erro ao receber mensagem do cliente TCP:", err)
+	// Recebe os dados enviados do cliente
+	scanner := bufio.NewScanner(conn)
+
+	// Faz o cadastro do cliente, salvando ele em um map indexado pelo seu nome
+	if !scanner.Scan() {
+		return
 	}
+	nome := strings.TrimSpace(scanner.Text())
 
-	//Cadastro do usuário
-	nome := strings.TrimSpace(string(buf[:n]))
+	//Bloqueia para que possa inserir um cliente no map de clientes, sem ter o risco de concorrência
+	mu.Lock()
 	clientes[conn] = nome
-
+	mu.Unlock()
 	fmt.Println("[Sistema] Cliente:", nome, "conectado")
 
-	for {
-		n, err = conn.Read(buf)
-		if err != nil {
-			delete(clientes, conn)
-			fmt.Println("Erro ao receber mensagem do cliente TCP:", err)
-			return
-		}
+	// Loop de comandos
+	for scanner.Scan() {
+		comandoInteiro := strings.ToLower(strings.TrimSpace(scanner.Text()))
+		partes := strings.Split(comandoInteiro, " ")
+		comando := partes[0]
 
-		comando := strings.ToLower(strings.TrimSpace(string(buf[:n])))
 		fmt.Println("[Sistema] Cliente:", nome, "executou o comando:", comando)
 
 		switch comando {
@@ -105,25 +121,54 @@ func clienteHandler(conn net.Conn) {
 			id := "todos"
 			// Verifica se o usuário passou um ID específico
 			if len(partes) > 1 {
-				id = partes[1] // Atribuição correta (sem o :)
+				id = partes[1]
 			}
 
 			mu.Lock()
+			// Verifica se existe ou está funcionando o sensor passado pelo usuário
+			if id != "todos" {
+				ultimaVez, existe := sensores[id]
+				//Verifica se o sensor está ativo há mais de 20 segundos e se ele existe, para então escutar ele
+				isAtivo := existe && time.Since(ultimaVez) < (20*time.Second)
+
+				if !isAtivo {
+					mu.Unlock()
+					// CORREÇÃO: Passando o 'id' para preencher o %s
+					fmt.Fprintf(conn, "[ERRO] O sensor de ID: '%s' não existe ou está offline!\n", id)
+					continue
+				}
+			}
+
+			// Se for "todos" ou se o sensor específico estiver ativo, ele salva aqui
 			clientesInteressados[conn] = id
 			mu.Unlock()
 			fmt.Fprintf(conn, "[SISTEMA] Agora você recebe dados do sensor: %s\n", id)
 
 		case "parar":
 			mu.Lock()
+			//Verifica se o cliente está escutando algum sensor, antes de desconectar ele efetivamente
+			idSensor, encontrado := clientesInteressados[conn]
+
+			//Se não encontrou, simplesmente retorna um aviso informando que ele não está escutando nenhum sensor
+			if encontrado == false {
+				mu.Unlock()
+				fmt.Fprintf(conn, "[AVISO] Você não está escutando nenhum sensor!\n")
+				continue
+			}
+
+			//Se estiver escutando, ele deleta aqui o cliente da lista de interessados
 			delete(clientesInteressados, conn)
 			mu.Unlock()
-			fmt.Fprintf(conn, "[TELEMETRIA] Você parou de receber dados dp sensor.\n")
+			fmt.Fprintf(conn, "[TELEMETRIA] Você parou de receber dados do sensor %s!\n", idSensor)
 
 		case "listar":
 			mu.Lock()
 			var listaSensores []string
-			for sensor := range sensores {
-				listaSensores = append(listaSensores, sensor)
+			for sensor, ultimaVez := range sensores {
+				//Deixo apenas os sensores que responderam nos últimos 20 segundos
+				if time.Since(ultimaVez) < 20*time.Second {
+					listaSensores = append(listaSensores, sensor)
+				}
 			}
 			mu.Unlock()
 
@@ -136,15 +181,17 @@ func clienteHandler(conn net.Conn) {
 			}
 
 		case "sair":
-			fmt.Fprintf(conn, "%s saiu do servidor.", nome)
-			delete(clientes, conn)
-			conn.Close()
+			fmt.Fprintf(conn, "%s se desconectou! Até logo.\n", nome)
 			return
-			//Adicionar os outros comandos
-		default:
-			fmt.Println("[Sistema] Comando inválido!")
-		}
 
+		default:
+			fmt.Fprintf(conn, "[Sistema] Comando inválido!\n")
+		}
 	}
 
+	// Se sair do loop, remove o cliente
+	mu.Lock()
+	delete(clientes, conn)
+	delete(clientesInteressados, conn)
+	mu.Unlock()
 }
