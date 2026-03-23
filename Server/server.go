@@ -41,6 +41,39 @@ func iniciarServerTCP() {
 	}
 }
 
+func iniciarServerUDP() {
+	addr, _ := net.ResolveUDPAddr("udp", ":5000")
+	conn, _ := net.ListenUDP("udp", addr)
+	defer conn.Close()
+
+	fmt.Println("[UDP] Escutando porta 5000 (Telemetria)")
+
+	buf := make([]byte, 1024)
+	for {
+		n, _, _ := conn.ReadFromUDP(buf)
+
+		var dadosSensor Sensor
+
+		err := json.Unmarshal(buf[:n], &dadosSensor)
+
+		if err != nil {
+			continue //Só ignora se não for válido
+		}
+
+		mu.Lock()
+		for monitor, filtro := range clientesInteressados {
+			// Envia se o filtro for "todos" ou igual ao ID do sensor
+			if filtro == "todos" || filtro == dadosSensor.ID {
+				fmt.Fprintf(monitor, "[TELEMETRIA] DADOS RECEBIDOS DO SENSOR: %s\n"+
+					"Temperatura: %.2f°C | Pressão: %.2f hPa | Umidade: %.2f%% | Ruído: %.2f dB\n"+
+					"Insira um comando:", dadosSensor.ID, dadosSensor.Temperatura, dadosSensor.Pressao,
+					dadosSensor.Umidade, dadosSensor.Ruido)
+			}
+		}
+		mu.Unlock()
+	}
+}
+
 func clienteHandler(conn net.Conn) {
 	defer conn.Close()
 
