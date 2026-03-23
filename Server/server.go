@@ -68,6 +68,24 @@ func clienteHandler(conn net.Conn) {
 		fmt.Println("[Sistema] Cliente:", nome, "executou o comando:", comando)
 
 		switch comando {
+		case "receber":
+			id := "todos"
+			// Verifica se o usuário passou um ID específico
+			if len(partes) > 1 {
+				id = partes[1] // Atribuição correta (sem o :)
+			}
+
+			mu.Lock()
+			clientesInteressados[conn] = id
+			mu.Unlock()
+			fmt.Fprintf(conn, "[SISTEMA] Agora você recebe dados do sensor: %s\n", id)
+
+		case "parar":
+			mu.Lock()
+			delete(clientesInteressados, conn)
+			mu.Unlock()
+			fmt.Fprintf(conn, "[TELEMETRIA] Você parou de receber dados dp sensor.\n")
+
 		case "sair":
 			fmt.Fprintf(conn, "%s saiu do servidor.", nome)
 			delete(clientes, conn)
