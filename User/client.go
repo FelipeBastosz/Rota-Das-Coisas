@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	conn, err := net.Dial("tcp", ":8080")
+	conn, err := net.Dial("tcp", "localhost:8080")
 	if err != nil {
 		fmt.Println("[Cliente] Erro ao se conectar ao servidor!", err)
 	}
@@ -28,7 +28,7 @@ func main() {
 	go func() {
 		scanner := bufio.NewScanner(conn)
 		for scanner.Scan() {
-			fmt.Printf("\r\033[K%s\nDigite sua mensagem: ", scanner.Text())
+			fmt.Printf("\r\033[K%s\nInsira o comando para enviar ao servidor: ", scanner.Text())
 		}
 		fmt.Println("\n[ERRO] Servidor foi encerrado.")
 		os.Exit(0)
@@ -36,8 +36,14 @@ func main() {
 
 	//Função para enviar comandos para o servidor
 	scanner := bufio.NewScanner(os.Stdin)
+
+	fmt.Println("======= LISTA DE COMANDOS =======")
+	fmt.Println("[1] Receber dados do sensor: 'receber [id]'")
+	fmt.Println("[2] Parar de receber dados do sensor: 'parar'")
+	fmt.Println("[3] Listar os sensores disponíveis: 'listar'")
+	fmt.Println("[4] Desconectar do servidor: 'sair'")
+
 	for {
-		fmt.Println("Insira o comando para enviar ao servidor:")
 		if !scanner.Scan() {
 			break
 		}
