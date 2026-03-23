@@ -7,6 +7,16 @@ import (
 	"strings"
 )
 
+type Sensor struct {
+	ID          string  `json:"ID"`
+	Temperatura float64 `json:"Temperatura"`
+	Umidade     float64 `json:"Umidade"`
+	Pressao     float64 `json:"Pressao"`
+	Ruido       float64 `json:"Ruido"`
+	Tempo       string  `json:"Tempo"`
+}
+
+// Mapa que guarda as conexões dos usuários indexados pelos seus nomes
 var clientes = make(map[net.Conn]string)
 
 func main() {
