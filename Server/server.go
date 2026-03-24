@@ -28,6 +28,10 @@ var clientes = make(map[net.Conn]string)
 
 // Clientes interessados em escutar os dados dos sensores
 var clientesInteressados = make(map[net.Conn]string)
+
+// Mapa que guarda os atuadores
+var atuadores = make(map[string]net.Conn)
+
 var mu sync.Mutex //Vai ser utilizado para proteger o mapa de clientes, impedindo adicionar e retirar clientes
 
 func main() {
@@ -136,17 +140,9 @@ func iniciarServerUDP() {
 	}
 }
 
-func clienteHandler(conn net.Conn) {
+// Recebe a conexão, o nome do usuário e o scanner que já estava sendo utilizado
+func clienteHandler(conn net.Conn, nome string, scanner *bufio.Scanner) {
 	defer conn.Close()
-
-	// Recebe os dados enviados do cliente
-	scanner := bufio.NewScanner(conn)
-
-	// Faz o cadastro do cliente, salvando ele em um map indexado pelo seu nome
-	if !scanner.Scan() {
-		return
-	}
-	nome := strings.TrimSpace(scanner.Text())
 
 	//Bloqueia para que possa inserir um cliente no map de clientes, sem ter o risco de concorrência
 	mu.Lock()
@@ -160,7 +156,7 @@ func clienteHandler(conn net.Conn) {
 		partes := strings.Split(comandoInteiro, " ")
 		comando := partes[0]
 
-		fmt.Println("[Sistema] Cliente:", nome, "executou o comando:", comando)
+		fmt.Println("[Sistema] Cliente:", nome, "executou o comando:", comandoInteiro)
 
 		switch comando {
 		case "receber":
@@ -207,8 +203,34 @@ func clienteHandler(conn net.Conn) {
 			mu.Unlock()
 			fmt.Fprintf(conn, "[TELEMETRIA] Você parou de receber dados do sensor %s!\n", idSensor)
 
+		case "atuar":
+			if len(partes) < 3 {
+				fmt.Fprintf(conn, "[ERRO] Comando inserido de maneira errada! Maneira correta: atuar <ID_Atuador> <ação>\n")
+			}
+
+			idAtuador := strings.ToLower(partes[1])
+			acao := strings.ToLower(partes[2])
+
+			mu.Lock()
+			connAtuador, existe := atuadores[idAtuador]
+			mu.Unlock()
+
+			if existe == false {
+				fmt.Fprintf(conn, "[ERRO] O atuador com ID: %s não existe ou está offline!\n", idAtuador)
+				continue
+			}
+
+			//Enviando o comando para o atuador
+			fmt.Fprintf(connAtuador, "%s\n", acao)
+			fmt.Fprintf(conn, "[SISTEMA] Comando: %s foi enviado para o atuador: %s\n", acao, idAtuador)
+
 		case "listar":
 			mu.Lock()
+			var listaAtuadores []string
+			for idAtuador := range atuadores {
+				listaAtuadores = append(listaAtuadores, idAtuador)
+			}
+
 			var listaSensores []string
 			for sensor, ultimaVez := range sensores {
 				//Deixo apenas os sensores que responderam nos últimos 20 segundos
@@ -226,18 +248,46 @@ func clienteHandler(conn net.Conn) {
 				fmt.Fprintf(conn, "[SISTEMA] Sensores disponíveis: %s\n", strings.Join(listaSensores, ", "))
 			}
 
+			if len(listaAtuadores) == 0 {
+				fmt.Fprintf(conn, "[SISTEMA] Nenhum atuador detectado na rede no momento.\n")
+			} else {
+				fmt.Fprintf(conn, "[SISTEMA] Sensores disponíveis %s\n", strings.Join(listaAtuadores, ", "))
+			}
+
 		case "sair":
 			fmt.Fprintf(conn, "%s se desconectou! Até logo.\n", nome)
 			return
+		case "help":
+			fmt.Fprintf(conn, "[1] Receber dados do sensor: receber [ID], o ID deve ser um dos sensores disponíveis ao digitar listar\n"+
+				"[2] Parar de receber dados: 'parar', ele vai ser responsável por parada de receber os dados dos sensores\n"+
+				"[3] Listar os sensores e atuadores disponíveis: 'listar', é o comando utilizado para listar todos os sensores e atuadores disponíveis na rede\n"+
+				"[4] Enviar comando para o atuador: atuar [ID_Atuador] - nome do atuador a executar a ação [AÇÃO] ação a ser executada: ligar ou desligar\n"+
+				"[5] Desconectar do Servidor: 'sair', será o responsável por desconectar o cliente do servidor\n")
 
+		//case "limpar":
+		//	limparTerminal(runtime.GOOS)
 		default:
 			fmt.Fprintf(conn, "[Sistema] Comando inválido!\n")
 		}
 	}
 
-	// Se sair do loop, remove o cliente
+	// Se sair do loop, remove o cliente:
 	mu.Lock()
 	delete(clientes, conn)
 	delete(clientesInteressados, conn)
 	mu.Unlock()
 }
+
+//func limparTerminal(sistemaOperacional os) {
+//	clear = make(map[string]func()) //Initialize it
+//	clear["linux"] = func() {
+//		cmd := exec.Command("clear") //Linux example, its tested
+//		cmd.Stdout = os.Stdout
+//		cmd.Run()
+//	}
+//	clear["windows"] = func() {
+//		cmd := exec.Command("cmd", "/c", "cls") //Windows example, its tested
+//		cmd.Stdout = os.Stdout
+//		cmd.Run()
+//	}
+//}
