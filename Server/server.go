@@ -56,6 +56,51 @@ func iniciarServerTCP() {
 	}
 }
 
+// Diferencia o atuador de um cliente
+func identificarConexao(conn net.Conn) {
+	scanner := bufio.NewScanner(conn)
+	if !scanner.Scan() {
+		conn.Close()
+		return
+	}
+	//Junta tudo para verificar se é atuador ou cliente
+	primeiraLinha := strings.TrimSpace(scanner.Text())
+
+	//Separa e verifica se o primeiro nome é atuador
+	primeiroNome := strings.Split(primeiraLinha, "|")
+	if primeiroNome[0] == "ATUADOR" {
+		if len(primeiroNome) == 2 {
+			tratarAtuador(conn, primeiroNome[1], scanner)
+		} else {
+			conn.Close()
+		}
+		return
+	}
+	//Se não for atuador, verifico que é cliente e mando para o clienteHandler fazer o tratamento dele
+	clienteHandler(conn, primeiroNome[0], scanner)
+}
+
+func tratarAtuador(conn net.Conn, id string, scanner *bufio.Scanner) {
+	defer conn.Close()
+
+	mu.Lock()
+	atuadores[id] = conn
+	mu.Unlock()
+	fmt.Println("[ATUADOR] Atuador conectado com o ID:", id)
+	for scanner.Scan() {
+		mensagem := scanner.Text()
+		if strings.HasPrefix(mensagem, "RESPOSTA") {
+			fmt.Printf("[RESPOSTA ATUADOR] Atuador %s, respondeu: %s\n", id, mensagem)
+		}
+	}
+
+	//Quando for parar de ser utilizado ele é retirado da lista de atuadores
+	mu.Lock()
+	delete(atuadores, id)
+	mu.Unlock()
+	fmt.Printf("[ATUADOR] Atuador com o ID: %s, foi desconectado!\n", id)
+}
+
 func iniciarServerUDP() {
 	addr, _ := net.ResolveUDPAddr("udp", ":5000")
 	conn, _ := net.ListenUDP("udp", addr)
