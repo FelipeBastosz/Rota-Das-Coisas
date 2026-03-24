@@ -40,8 +40,11 @@ func main() {
 	fmt.Println("======= LISTA DE COMANDOS =======")
 	fmt.Println("[1] Receber dados do sensor: 'receber [id]'")
 	fmt.Println("[2] Parar de receber dados do sensor: 'parar'")
-	fmt.Println("[3] Listar os sensores disponíveis: 'listar'")
-	fmt.Println("[4] Desconectar do servidor: 'sair'")
+	fmt.Println("[3] Listar os sensores e atuadores disponíveis: 'listar'")
+	fmt.Println("[4] Enviar comando para o atuador: atuar [ID_Atuador] [AÇÃO]")
+	fmt.Println("[5] Desconectar do servidor: 'sair'")
+	fmt.Println("[6] Limpar terminal: 'limpar'")
+	fmt.Println("[7] Ajuda para comandos: 'help'")
 
 	for {
 		if !scanner.Scan() {
