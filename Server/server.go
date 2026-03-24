@@ -52,7 +52,8 @@ func iniciarServerTCP() {
 		if err != nil {
 			log.Println("Erro ao conectar o cliente TCP:", err)
 		}
-		go clienteHandler(conn)
+		//Verifica se quem entrou é um atuador ou cliente
+		go identificarConexao(conn)
 	}
 }
 
