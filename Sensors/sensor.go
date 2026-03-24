@@ -50,7 +50,7 @@ func main() {
 		jsonBytes, _ := json.Marshal(dadosSensor)
 		conn.Write(jsonBytes)
 
-		fmt.Printf("Sensor: %s, enviou os dados: %s", dadosSensor.ID, string(jsonBytes))
-		time.Sleep(1000 * time.Millisecond) //Manda os dados a cada 300ms
+		fmt.Printf("Sensor: %s, enviou os dados: %s\n", dadosSensor.ID, string(jsonBytes))
+		time.Sleep(1000 * time.Millisecond) //Manda os dados a cada 1 segundo
 	}
 }
