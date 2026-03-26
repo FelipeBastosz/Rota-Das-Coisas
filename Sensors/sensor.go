@@ -48,9 +48,14 @@ func main() {
 		}
 
 		jsonBytes, _ := json.Marshal(dadosSensor)
-		conn.Write(jsonBytes)
+		_, err := conn.Write(jsonBytes)
 
-		fmt.Printf("Sensor: %s, enviou os dados: %s\n", dadosSensor.ID, string(jsonBytes))
+		if err != nil {
+			fmt.Println("[AVISO] Falha ao enviar os dados ao servidor!")
+		} else {
+			fmt.Printf("Sensor: %s, enviou os dados: %s\n", dadosSensor.ID, string(jsonBytes))
+		}
+
 		time.Sleep(1000 * time.Millisecond) //Manda os dados a cada 1 segundo
 	}
 }
