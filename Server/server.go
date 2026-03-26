@@ -278,16 +278,31 @@ func clienteHandler(conn net.Conn, nome string, scanner *bufio.Scanner) {
 	mu.Unlock()
 }
 
-//func limparTerminal(sistemaOperacional os) {
-//	clear = make(map[string]func()) //Initialize it
-//	clear["linux"] = func() {
-//		cmd := exec.Command("clear") //Linux example, its tested
-//		cmd.Stdout = os.Stdout
-//		cmd.Run()
-//	}
-//	clear["windows"] = func() {
-//		cmd := exec.Command("cmd", "/c", "cls") //Windows example, its tested
-//		cmd.Stdout = os.Stdout
-//		cmd.Run()
-//	}
-//}
+func tratamentoDeDesligamento() {
+	c := make(chan os.Signal, 1)
+	//É quem fica escutando caso o usuário dê CTRL + C, aí finaliza o processo
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-c
+		fmt.Println("[SISTEMA] Finalizando o sistema...")
+		fmt.Println("[SISTEMA] Desconectando os clientes do servidor...")
+		mu.Lock()
+		for conn, _ := range clientes {
+			fmt.Fprintf(conn, "\n[SISTEMA] O servidor está sendo desligado. Você será desconectado!\n")
+			time.Sleep(200 * time.Millisecond)
+			//Finaliza a conexão do cliente com o servidor
+			conn.Close()
+		}
+
+		for _, conn := range atuadores {
+			fmt.Fprintf(conn, "\n[SISTEMA] O servidor está sendo desligado. Você será desconectado!\n")
+			//Finaliza a conexão do atuador com o servidor
+			time.Sleep(200 * time.Millisecond)
+			conn.Close()
+		}
+		mu.Unlock()
+		fmt.Println("[SISTEMA] Servidor foi encerrado com sucesso!")
+		os.Exit(0)
+	}()
+}
