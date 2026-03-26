@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 )
 
 type Atuador struct {
@@ -47,19 +48,25 @@ func main() {
 		switch strings.ToLower(comando) {
 		case "ligar":
 			if atuador.ligado == false {
-				fmt.Fprintf(conn, "RESPOSTA|%s foi ligado!\n", atuador.id)
+				fmt.Println("[ATUADOR] Ligando o atuador...")
+				time.Sleep(600 * time.Millisecond)
 				alterarModo(&atuador)
+				fmt.Fprintf(conn, "RESPOSTA|%s foi ligado!\n", atuador.id)
 				fmt.Println("[ATUADOR] Está ligado!")
 			} else {
 				fmt.Fprintf(conn, "RESPOSTA|%s já está ligado\n", atuador.id)
+				fmt.Println("[ATUADOR] Aviso: já está ligado!")
 			}
 		case "desligar":
 			if atuador.ligado == false {
 				fmt.Fprintf(conn, "RESPOSTA|%s está desligado!\n", atuador.id)
+				fmt.Println("[ATUADOR] Já está desligado!")
 			} else {
-				fmt.Fprintf(conn, "RESPOSTA|%s foi desligado com sucesso!\n", atuador.id)
+				fmt.Println("[ATUADOR] Desligando atuador...")
 				alterarModo(&atuador)
-				fmt.Println("[ATUADOR] Está desligado!")
+				time.Sleep(600 * time.Millisecond)
+				fmt.Println("[ATUADOR] O atuador foi desligado!")
+				fmt.Fprintf(conn, "RESPOSTA|%s foi desligado com sucesso!\n", atuador.id)
 			}
 		default:
 			//Avisa de volta ao servidor que o comando não foi reconhecido
