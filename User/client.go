@@ -52,7 +52,22 @@ func main() {
 		}
 		comando := scanner.Text()
 
-		//Verifico se a mensagem não está vazia
+		//Verifica logo aqui se o usuário quer limpar o terminal, sem precisar enviar para o servidor tratar
+		if strings.ToLower(strings.TrimSpace(comando)) == "limpar" {
+			cmd := exec.Command("clear")
+			cmd.Stdout = os.Stdout
+			err := cmd.Run()
+
+			if err != nil {
+				cmd = exec.Command("cmd", "/c", "clear")
+				cmd.Stdout = os.Stdout
+				cmd.Run()
+			}
+			imprimirMenu()
+			continue
+		}
+
+		//Verifico se a mensagem não está vazia e envio o comando ao servidor
 		if strings.TrimSpace(comando) != "" {
 			fmt.Fprintf(conn, comando+"\n")
 		}
