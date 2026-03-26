@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -19,6 +22,9 @@ type Sensor struct {
 	Ruido       float64 `json:"Ruido"`
 	Tempo       string  `json:"Tempo"`
 }
+
+// Liga o atuador ao cliente, para que o atuador possa responder o cliente.
+var atuadorCliente = make(map[string]net.Conn)
 
 // Mapa de sensores ativos funcionando
 var sensores = make(map[string]time.Time)
@@ -35,6 +41,9 @@ var atuadores = make(map[string]net.Conn)
 var mu sync.Mutex //Vai ser utilizado para proteger o mapa de clientes, impedindo adicionar e retirar clientes
 
 func main() {
+	// Fica esperando o ctrl + c para encerrar o sistema
+	tratamentoDeDesligamento()
+
 	// Vai ficar escutando paralelamente os dados enviados dos sensores
 	go iniciarServerUDP()
 
@@ -45,7 +54,7 @@ func main() {
 func iniciarServerTCP() {
 	ln, err := net.Listen("tcp", ":8080")
 	if err != nil {
-		log.Fatalln("Erro ao iniciar servidor TCP:", err)
+		log.Fatalln("[ERRO] Erro ao iniciar servidor TCP:", err)
 
 	}
 
@@ -54,7 +63,7 @@ func iniciarServerTCP() {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			log.Println("Erro ao conectar o cliente TCP:", err)
+			log.Println("[ERRO] Erro ao conectar o cliente TCP:", err)
 		}
 		//Verifica se quem entrou é um atuador ou cliente
 		go identificarConexao(conn)
@@ -127,7 +136,7 @@ func iniciarServerUDP() {
 	conn, _ := net.ListenUDP("udp", addr)
 	defer conn.Close()
 
-	fmt.Println("[UDP] Servido UDP está ligado e escutando porta 5000")
+	fmt.Println("[UDP] Servidor UDP está ligado e escutando porta 5000")
 
 	buf := make([]byte, 1024)
 	for {
@@ -222,13 +231,20 @@ func clienteHandler(conn net.Conn, nome string, scanner *bufio.Scanner) {
 		case "atuar":
 			if len(partes) < 3 {
 				fmt.Fprintf(conn, "[ERRO] Comando inserido de maneira errada! Maneira correta: atuar <ID_Atuador> <ação>\n")
+				continue
 			}
 
 			idAtuador := strings.ToLower(partes[1])
 			acao := strings.ToLower(partes[2])
 
+			//Verifico se o atuador existe
 			mu.Lock()
 			connAtuador, existe := atuadores[idAtuador]
+			mu.Unlock()
+
+			//Guardo a conexão do cliente com base no id do atuador
+			mu.Lock()
+			atuadorCliente[idAtuador] = conn
 			mu.Unlock()
 
 			if existe == false {
@@ -267,21 +283,23 @@ func clienteHandler(conn net.Conn, nome string, scanner *bufio.Scanner) {
 			if len(listaAtuadores) == 0 {
 				fmt.Fprintf(conn, "[SISTEMA] Nenhum atuador detectado na rede no momento.\n")
 			} else {
-				fmt.Fprintf(conn, "[SISTEMA] Sensores disponíveis %s\n", strings.Join(listaAtuadores, ", "))
+				fmt.Fprintf(conn, "[SISTEMA] Atuadores disponíveis: %s\n", strings.Join(listaAtuadores, ", "))
 			}
 
 		case "sair":
-			fmt.Fprintf(conn, "%s se desconectou! Até logo.\n", nome)
+			fmt.Fprintf(conn, "[SISTEMA] %s se desconectou! Até logo.\n", nome)
+			fmt.Println("[USUÁRIO]", nome, "se desconectou")
 			return
 		case "help":
 			fmt.Fprintf(conn, "[1] Receber dados do sensor: receber [ID], o ID deve ser um dos sensores disponíveis ao digitar listar\n"+
 				"[2] Parar de receber dados: 'parar', ele vai ser responsável por parada de receber os dados dos sensores\n"+
 				"[3] Listar os sensores e atuadores disponíveis: 'listar', é o comando utilizado para listar todos os sensores e atuadores disponíveis na rede\n"+
 				"[4] Enviar comando para o atuador: atuar [ID_Atuador] - nome do atuador a executar a ação [AÇÃO] ação a ser executada: ligar ou desligar\n"+
-				"[5] Desconectar do Servidor: 'sair', será o responsável por desconectar o cliente do servidor\n")
+				"[5] Desconectar do Servidor: 'sair', será o responsável por desconectar o cliente do servidor\n"+
+				"[6] Limpar terminal: 'limpar', vai limpar o terminal para o usuário"+
+				"[7] Ajuda: 'help', mostra um menu de ajuda mostrando como usar os comandos para o usuário"+
+				"Insira o comando para enviar ao servidor:\n")
 
-		//case "limpar":
-		//	limparTerminal(runtime.GOOS)
 		default:
 			fmt.Fprintf(conn, "[Sistema] Comando inválido!\n")
 		}
@@ -294,6 +312,7 @@ func clienteHandler(conn net.Conn, nome string, scanner *bufio.Scanner) {
 	mu.Unlock()
 }
 
+// Caso o usuário digite CTRL + C no servidor, é essa função que vai fazer o tratamento de erro
 func tratamentoDeDesligamento() {
 	c := make(chan os.Signal, 1)
 	//É quem fica escutando caso o usuário dê CTRL + C, aí finaliza o processo
@@ -304,6 +323,8 @@ func tratamentoDeDesligamento() {
 		fmt.Println("[SISTEMA] Finalizando o sistema...")
 		fmt.Println("[SISTEMA] Desconectando os clientes do servidor...")
 		mu.Lock()
+
+		//Percorre a lista de clientes e vai desconectando eles
 		for conn, _ := range clientes {
 			fmt.Fprintf(conn, "\n[SISTEMA] O servidor está sendo desligado. Você será desconectado!\n")
 			time.Sleep(200 * time.Millisecond)
@@ -311,6 +332,7 @@ func tratamentoDeDesligamento() {
 			conn.Close()
 		}
 
+		//Mesma coisa acontece para os atuadores, percorre o map e desconecta eles
 		for _, conn := range atuadores {
 			fmt.Fprintf(conn, "\n[SISTEMA] O servidor está sendo desligado. Você será desconectado!\n")
 			//Finaliza a conexão do atuador com o servidor
