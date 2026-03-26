@@ -68,6 +68,7 @@ func main() {
 				cmd.Run()
 			}
 			imprimirMenu()
+			fmt.Println("Insira o comando para enviar ao servidor")
 			continue
 		}
 

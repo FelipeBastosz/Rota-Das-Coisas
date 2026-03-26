@@ -118,7 +118,7 @@ func tratarAtuador(conn net.Conn, id string, scanner *bufio.Scanner) {
 
 				//Retira o cliente da lista de usuários que estão esperando a resposta do atuador
 				mu.Lock()
-				delete(atuadores, id)
+				delete(atuadorCliente, id)
 				mu.Unlock()
 			}
 		}
@@ -296,9 +296,8 @@ func clienteHandler(conn net.Conn, nome string, scanner *bufio.Scanner) {
 				"[3] Listar os sensores e atuadores disponíveis: 'listar', é o comando utilizado para listar todos os sensores e atuadores disponíveis na rede\n"+
 				"[4] Enviar comando para o atuador: atuar [ID_Atuador] - nome do atuador a executar a ação [AÇÃO] ação a ser executada: ligar ou desligar\n"+
 				"[5] Desconectar do Servidor: 'sair', será o responsável por desconectar o cliente do servidor\n"+
-				"[6] Limpar terminal: 'limpar', vai limpar o terminal para o usuário"+
-				"[7] Ajuda: 'help', mostra um menu de ajuda mostrando como usar os comandos para o usuário"+
-				"Insira o comando para enviar ao servidor:\n")
+				"[6] Limpar terminal: 'limpar', vai limpar o terminal para o usuário\n"+
+				"[7] Ajuda: 'help', mostra um menu de ajuda mostrando como usar os comandos para o usuário\n")
 
 		default:
 			fmt.Fprintf(conn, "[Sistema] Comando inválido!\n")
