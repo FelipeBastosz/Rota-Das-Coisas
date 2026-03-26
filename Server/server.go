@@ -96,6 +96,22 @@ func tratarAtuador(conn net.Conn, id string, scanner *bufio.Scanner) {
 		mensagem := scanner.Text()
 		if strings.HasPrefix(mensagem, "RESPOSTA") {
 			fmt.Printf("[RESPOSTA ATUADOR] Atuador %s, respondeu: %s\n", id, mensagem)
+			mu.Lock()
+			connCliente, esperando := atuadorCliente[id]
+			mu.Unlock()
+
+			if esperando {
+				//Formato a resposta para tirar o prefixo RESPOSTA|
+				respostaAtuador := strings.Replace(mensagem, "RESPOSTA|", "", 1)
+
+				//Envia a resposta do atuador ao cliente
+				fmt.Fprintf(connCliente, "[RESPOSTA ATUADOR] O atuador respondeu: %s\n", respostaAtuador)
+
+				//Retira o cliente da lista de usuários que estão esperando a resposta do atuador
+				mu.Lock()
+				delete(atuadores, id)
+				mu.Unlock()
+			}
 		}
 	}
 
