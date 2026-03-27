@@ -242,7 +242,12 @@ func clienteHandler(conn net.Conn, nome string, scanner *bufio.Scanner) {
 			connAtuador, existe := atuadores[idAtuador]
 			mu.Unlock()
 
-			//Guardo a conexão do cliente com base no id do atuador
+			if existe == false {
+				fmt.Fprintf(conn, "[ERRO] O atuador com ID: %s não existe ou está offline!\n", idAtuador)
+				continue
+			}
+
+			//Guardo a conexão do cliente com base no ID do atuador
 			mu.Lock()
 			atuadorCliente[idAtuador] = conn
 			mu.Unlock()
