@@ -23,8 +23,8 @@ type Sensor struct {
 	Tempo       string  `json:"Tempo"`
 }
 
-// Liga o atuador ao cliente, para que o atuador possa responder o cliente.
-var atuadorCliente = make(map[string]net.Conn)
+// Fila de clientes que ficam esperando a resposta do atuador.
+var filaAtuadores = make(map[string][]net.Conn)
 
 // Mapa de sensores ativos funcionando
 var sensores = make(map[string]time.Time)
@@ -106,19 +106,19 @@ func tratarAtuador(conn net.Conn, id string, scanner *bufio.Scanner) {
 		if strings.HasPrefix(mensagem, "RESPOSTA") {
 			fmt.Printf("[RESPOSTA ATUADOR] Atuador %s, respondeu: %s\n", id, mensagem)
 			mu.Lock()
-			connCliente, esperando := atuadorCliente[id]
-			mu.Unlock()
+			fila := filaAtuadores[id]
 
-			if esperando {
-				//Formato a resposta para tirar o prefixo RESPOSTA|
+			if len(fila) > 0 {
+				//Respondo o primeiro da fila
+				connCliente := fila[0]
+				//Atualiza a fila para o próximo elemento da lista
+				filaAtuadores[id] = fila[1:]
+				mu.Unlock()
+
 				respostaAtuador := strings.Replace(mensagem, "RESPOSTA|", "", 1)
+				fmt.Fprintf(connCliente, "[RESPOSTA ATUADOR] O atuador respondeu %s\n", respostaAtuador)
 
-				//Envia a resposta do atuador ao cliente
-				fmt.Fprintf(connCliente, "[RESPOSTA ATUADOR] O atuador respondeu: %s\n", respostaAtuador)
-
-				//Retira o cliente da lista de usuários que estão esperando a resposta do atuador
-				mu.Lock()
-				delete(atuadorCliente, id)
+			} else {
 				mu.Unlock()
 			}
 		}
@@ -249,13 +249,8 @@ func clienteHandler(conn net.Conn, nome string, scanner *bufio.Scanner) {
 
 			//Guardo a conexão do cliente com base no ID do atuador
 			mu.Lock()
-			atuadorCliente[idAtuador] = conn
+			filaAtuadores[idAtuador] = append(filaAtuadores[idAtuador], conn)
 			mu.Unlock()
-
-			if existe == false {
-				fmt.Fprintf(conn, "[ERRO] O atuador com ID: %s não existe ou está offline!\n", idAtuador)
-				continue
-			}
 
 			//Enviando o comando para o atuador
 			fmt.Fprintf(connAtuador, "%s\n", acao)
