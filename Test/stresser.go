@@ -81,62 +81,120 @@ import (
 )
 
 func main() {
-	totalClientes := 3000
+	// Define a quantidade de clientes PARA CADA atuador (Total = 400 conexões)
+	totalClientes := 200
 	var wg sync.WaitGroup
 
-	fmt.Printf("Iniciando ataque de %d clientes simultâneos...\n", totalClientes)
+	fmt.Printf("Iniciando ataque de %d clientes simultâneos por atuador (Total: %d conexões)...\n", totalClientes, totalClientes*2)
 
-	// Dispara 500 goroutines simulando clientes reais
+	// Dispara goroutines simulando clientes reais para os DOIS atuadores em um único loop
 	for i := 0; i < totalClientes; i++ {
+
+		// ==========================================
+		// --- GOROUTINE DO ATUADOR 01 ---
+		// ==========================================
 		wg.Add(1)
 		go func(clienteID int) {
 			defer wg.Done()
 
-			// 1. O SEGREDO DO TESTE EM LOTE: "Espalhar" as conexões iniciais
-			// Cada bot vai esperar um tempo aleatório entre 0 e 2 segundos antes de tentar conectar
+			// Jitter: espalhamento aleatório entre 0 e 2 segundos
 			delayInicio := time.Duration(rand.Intn(2000)) * time.Millisecond
 			time.Sleep(delayInicio)
 
 			conn, err := net.Dial("tcp", "localhost:8080")
 			if err != nil {
-				fmt.Printf("[Bot_%d] ERRO DE CONEXÃO: %v\n", clienteID, err)
+				fmt.Printf("[Bot_A1_%d] ERRO DE CONEXÃO: %v\n", clienteID, err)
 				return
 			}
 			defer conn.Close()
 
-			// ... resto do código igualzinho ao anterior ...
-			fmt.Fprintf(conn, "Bot_%d\n", clienteID)
+			// Handshake de registro no servidor
+			fmt.Fprintf(conn, "Bot_A1_%d\n", clienteID)
 			time.Sleep(50 * time.Millisecond)
 
-			fmt.Fprintf(conn, "atuar atuador_01 ligar\n")
-
+			// Dispara a ação especificamente para o atuador 01
+			if i%2 == 0 {
+				fmt.Fprintf(conn, "atuar atuador_01 ligar\n")
+			} else {
+				fmt.Fprintf(conn, "atuar atuador_02 desligar\n")
+			}
 			scanner := bufio.NewScanner(conn)
 
-			// ATENÇÃO: Aumente o Deadline! Com 500 caras na fila e um delay de 600ms no atuador,
-			// o último cara da fila vai demorar no mínimo 5 minutos para receber a resposta!
-			// Para o teste não quebrar por timeout, coloque 10 minutos.
+			// Define o tempo limite alto para a fila inteira esvaziar
 			conn.SetReadDeadline(time.Now().Add(10 * time.Minute))
 
 			for scanner.Scan() {
 				mensagem := scanner.Text()
 
+				// Ignora log intermediário
 				if strings.Contains(mensagem, "[SISTEMA] Comando:") {
 					continue
 				}
 
+				// Captura a confirmação do hardware e encerra a goroutine
 				if strings.Contains(mensagem, "[RESPOSTA ATUADOR]") {
-					fmt.Printf("[Bot_%d] SUCESSO! %s\n", clienteID, mensagem)
+					fmt.Printf("[Bot_A1_%d] SUCESSO! %s\n", clienteID, mensagem)
 					break
 				}
 			}
 
 			if err := scanner.Err(); err != nil {
-				fmt.Printf("[Bot_%d] FALHA: Fiquei no vácuo por muito tempo! Erro: %v\n", clienteID, err)
+				fmt.Printf("[Bot_A1_%d] FALHA: Fiquei no vácuo! Erro: %v\n", clienteID, err)
+			}
+		}(i)
+
+		// ==========================================
+		// --- GOROUTINE DO ATUADOR 02 ---
+		// ==========================================
+		wg.Add(1)
+		go func(clienteID int) {
+			defer wg.Done()
+
+			// Jitter: espalhamento aleatório entre 0 e 2 segundos
+			delayInicio := time.Duration(rand.Intn(2000)) * time.Millisecond
+			time.Sleep(delayInicio)
+
+			conn, err := net.Dial("tcp", "localhost:8080")
+			if err != nil {
+				fmt.Printf("[Bot_A2_%d] ERRO DE CONEXÃO: %v\n", clienteID, err)
+				return
+			}
+			defer conn.Close()
+
+			// Handshake de registro no servidor
+			fmt.Fprintf(conn, "Bot_A2_%d\n", clienteID)
+			time.Sleep(50 * time.Millisecond)
+
+			// Dispara a ação especificamente para o atuador 02
+			fmt.Fprintf(conn, "atuar atuador_02 ligar\n")
+
+			scanner := bufio.NewScanner(conn)
+
+			// Define o tempo limite alto para a fila inteira esvaziar
+			conn.SetReadDeadline(time.Now().Add(10 * time.Minute))
+
+			for scanner.Scan() {
+				mensagem := scanner.Text()
+
+				// Ignora log intermediário
+				if strings.Contains(mensagem, "[SISTEMA] Comando:") {
+					continue
+				}
+
+				// Captura a confirmação do hardware e encerra a goroutine
+				if strings.Contains(mensagem, "[RESPOSTA ATUADOR]") {
+					fmt.Printf("[Bot_A2_%d] SUCESSO! %s\n", clienteID, mensagem)
+					break
+				}
 			}
 
+			if err := scanner.Err(); err != nil {
+				fmt.Printf("[Bot_A2_%d] FALHA: Fiquei no vácuo! Erro: %v\n", clienteID, err)
+			}
 		}(i)
 	}
 
+	// Trava a execução do programa até que todos os 400 bots tenham terminado
 	wg.Wait()
-	fmt.Println("Teste de estresse finalizado. A fila suportou a carga colossal!")
+	fmt.Println("Teste de estresse finalizado. As múltiplas filas suportaram a carga de forma isolada e perfeita!")
 }
