@@ -27,7 +27,7 @@ func main() {
 	}
 	id := strings.ToLower(os.Args[1])
 
-	addr, err := net.ResolveUDPAddr("udp", ":5000")
+	addr, err := net.ResolveUDPAddr("udp", "servidor:5000")
 	if err != nil {
 		fmt.Println("[COMUNICAÇÃO UDP] Erro ao se conectar ao servidor")
 	}

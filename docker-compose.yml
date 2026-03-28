@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  servidor:
+    build:
+      context: .
+      dockerfile: Server/Dockerfile
+    container_name: rota-server
+    ports:
+      - "8080:8080/tcp"
+      - "5000:5000/udp"
+    networks:
+      - rota-net
+
+  sensor-01:
+    build:
+      context: .
+      dockerfile: Sensors/Dockerfile
+    command: ["./sensor", "SENSOR_01"]
+    networks:
+      - rota-net
+    depends_on:
+      - servidor
+
+  sensor-02:
+    build:
+      context: .
+      dockerfile: Sensors/Dockerfile
+    command: ["./sensor", "SENSOR_02"]
+    networks:
+      - rota-net
+    depends_on:
+      - servidor
+
+  sensor-03:
+    build:
+      context: .
+      dockerfile: Sensors/Dockerfile
+    command: ["./sensor", "SENSOR_03"]
+    networks:
+      - rota-net
+    depends_on:
+      - servidor
+
+  atuador-01:
+    build:
+      context: .
+      dockerfile: Actuators/Dockerfile
+    command: ["./actuator", "ATUADOR_LAMPADA"]
+    networks:
+      - rota-net
+    depends_on:
+      - servidor
+
+  atuador-02:
+    build:
+      context: .
+      dockerfile: Actuators/Dockerfile
+    command: ["./actuator", "ATUADOR_AR_CONDICIONADO"]
+    networks:
+      - rota-net
+    depends_on:
+      - servidor
+
+networks:
+  rota-net:
+    driver: bridge

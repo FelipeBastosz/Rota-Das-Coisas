@@ -101,7 +101,7 @@ func main() {
 			delayInicio := time.Duration(rand.Intn(2000)) * time.Millisecond
 			time.Sleep(delayInicio)
 
-			conn, err := net.Dial("tcp", "localhost:8080")
+			conn, err := net.Dial("tcp", "servidor:8080")
 			if err != nil {
 				fmt.Printf("[Bot_A1_%d] ERRO DE CONEXÃO: %v\n", clienteID, err)
 				return
