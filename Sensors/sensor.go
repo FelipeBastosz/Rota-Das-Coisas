@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+// Estrutura para representar os dados do sensor, com os campos ID, Temperatura, Umidade, Pressao, Ruido e Tempo
 type Sensor struct {
 	ID          string  `json:"ID"`
 	Temperatura float64 `json:"Temperatura"`
@@ -20,23 +21,25 @@ type Sensor struct {
 }
 
 func main() {
-	//Recebe o ID do servidor pelo terminal
+	//Verifica se o ID do sensor foi passado, caso contrário, exibe uma mensagem de erro e encerra o programa
 	if len(os.Args) < 2 {
 		fmt.Println("[ERRO] Digite o nome do sensor após o comando! Ex: go run sensor.go SENSOR_01")
 		return
 	}
 	id := strings.ToLower(os.Args[1])
 
+	// Configura o endereço do servidor UDP para enviar os dados dos sensores, e depois inicia a conexão UDP com o servidor
 	addr, err := net.ResolveUDPAddr("udp", "servidor:5000")
 	if err != nil {
 		fmt.Println("[COMUNICAÇÃO UDP] Erro ao se conectar ao servidor")
 	}
-
 	conn, _ := net.DialUDP("udp", nil, addr)
 	defer conn.Close()
 
 	fmt.Println("===== Sensor", id, "ativo! =====")
 
+	//Gera dados dos sensores de forma aleatória e envia para o servidor a cada 1 segundo,
+	//utilizando a função json.Marshal para converter os dados do sensor em formato JSON antes de enviar
 	for {
 		dadosSensor := Sensor{
 			ID:          id,
@@ -47,6 +50,7 @@ func main() {
 			Tempo:       time.Now().Format("15:04:05"),
 		}
 
+		// Converte os dados do sensor para JSON e envia para o servidor
 		jsonBytes, _ := json.Marshal(dadosSensor)
 		_, err := conn.Write(jsonBytes)
 

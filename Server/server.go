@@ -42,7 +42,7 @@ var mu sync.Mutex //Vai ser utilizado para proteger o mapa de clientes, impedind
 
 func main() {
 	// Fica esperando o ctrl + c para encerrar o sistema
-	tratamentoDeDesligamento()
+	encerrarSistema()
 
 	// Vai ficar escutando paralelamente os dados enviados dos sensores
 	go iniciarServerUDP()
@@ -51,11 +51,12 @@ func main() {
 	iniciarServerTCP()
 }
 
+// Inicia o servidor TCP para receber as conexões dos clientes e atuadores, e depois manda para a função identificarConexao para diferenciar os dois tipos de conexões
 func iniciarServerTCP() {
+	// Configura o servidor TCP para escutar a porta 8080
 	ln, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		log.Fatalln("[ERRO] Erro ao iniciar servidor TCP:", err)
-
 	}
 
 	fmt.Println("[TCP] Servidor TCP está ligado e escutando a porta 8080")
@@ -94,6 +95,9 @@ func identificarConexao(conn net.Conn) {
 	clienteHandler(conn, primeiroNome[0], scanner)
 }
 
+// Função para tratar a conexão do atuador, onde ele é adicionado na lista de atuadores,
+// e depois fica esperando as mensagens do atuador, verificando se são respostas para os clientes, e caso sejam,
+// ele manda a resposta para o cliente que está esperando
 func tratarAtuador(conn net.Conn, id string, scanner *bufio.Scanner) {
 	defer conn.Close()
 
@@ -101,8 +105,11 @@ func tratarAtuador(conn net.Conn, id string, scanner *bufio.Scanner) {
 	atuadores[id] = conn
 	mu.Unlock()
 	fmt.Println("[ATUADOR] Atuador conectado com o ID:", id)
+
 	for scanner.Scan() {
+		//Recebe a mensagem do atuador
 		mensagem := scanner.Text()
+		//Verifico se a mensagem recebida do atuador é uma resposta
 		if strings.HasPrefix(mensagem, "RESPOSTA") {
 			fmt.Printf("[RESPOSTA ATUADOR] Atuador %s, respondeu: %s\n", id, mensagem)
 			mu.Lock()
@@ -115,6 +122,7 @@ func tratarAtuador(conn net.Conn, id string, scanner *bufio.Scanner) {
 				filaAtuadores[id] = fila[1:]
 				mu.Unlock()
 
+				// Manda a resposta do atuador para o cliente que está esperando
 				respostaAtuador := strings.Replace(mensagem, "RESPOSTA|", "", 1)
 				fmt.Fprintf(connCliente, "[RESPOSTA ATUADOR] O atuador respondeu %s\n", respostaAtuador)
 
@@ -131,19 +139,26 @@ func tratarAtuador(conn net.Conn, id string, scanner *bufio.Scanner) {
 	fmt.Printf("[ATUADOR] Atuador com o ID: %s, foi desconectado!\n", id)
 }
 
+// Inicia o servidor UDP para receber os dados dos sensores, e depois manda os dados para os clientes interessados
 func iniciarServerUDP() {
+	// Configura o servidor UDP para escutar a porta 5000
 	addr, _ := net.ResolveUDPAddr("udp", ":5000")
 	conn, _ := net.ListenUDP("udp", addr)
 	defer conn.Close()
 
 	fmt.Println("[UDP] Servidor UDP está ligado e escutando porta 5000")
 
+	// Buffer para receber os dados dos sensores
 	buf := make([]byte, 1024)
+
+	// Loop para receber os dados dos sensores, e depois enviar para os clientes interessados
 	for {
 		n, _, _ := conn.ReadFromUDP(buf)
 
 		var dadosSensor Sensor
 
+		// Ele tenta transformar os dados recebidos no formato JSON em um objeto do tipo Sensor, por meio do unmarshal, e se não conseguir, ele ignora o dado recebido e continua esperando
+		// os próximos dados dos sensores, para evitar que o servidor trave por causa de um dado mal formatado
 		err := json.Unmarshal(buf[:n], &dadosSensor)
 
 		if err != nil {
@@ -153,10 +168,11 @@ func iniciarServerUDP() {
 		mu.Lock()
 		sensores[dadosSensor.ID] = time.Now() //Digo qual foi a última vez que o sensor recebeu um dado
 
-		for monitor, filtro := range clientesInteressados {
+		//Percorre a lista de clientes interessados, e verifica se o filtro do cliente é "todos" ou se é igual ao ID do sensor, para então enviar os dados para ele
+		for cliente, filtro := range clientesInteressados {
 			// Envia se o filtro for "todos" ou igual ao ID do sensor
 			if filtro == "todos" || filtro == dadosSensor.ID {
-				fmt.Fprintf(monitor, "[TELEMETRIA] DADOS RECEBIDOS DO SENSOR: %s\n"+
+				fmt.Fprintf(cliente, "[TELEMETRIA] DADOS RECEBIDOS DO SENSOR: %s\n"+
 					"Temperatura: %.2f°C | Pressão: %.2f hPa | Umidade: %.2f%% | Ruído: %.2f dB\n", dadosSensor.ID, dadosSensor.Temperatura, dadosSensor.Pressao,
 					dadosSensor.Umidade, dadosSensor.Ruido)
 			}
@@ -177,6 +193,7 @@ func clienteHandler(conn net.Conn, nome string, scanner *bufio.Scanner) {
 
 	// Loop de comandos
 	for scanner.Scan() {
+		//Junta tudo para verificar o comando inteiro, e depois separa para pegar apenas o comando
 		comandoInteiro := strings.ToLower(strings.TrimSpace(scanner.Text()))
 		partes := strings.Split(comandoInteiro, " ")
 		comando := partes[0]
@@ -184,6 +201,9 @@ func clienteHandler(conn net.Conn, nome string, scanner *bufio.Scanner) {
 		fmt.Println("[Sistema] Cliente:", nome, "executou o comando:", comandoInteiro)
 
 		switch comando {
+
+		// Comando para receber os dados dos sensores, ele verifica se o cliente quer receber de um sensor específico ou de todos,
+		// e depois adiciona ele na lista de interessados
 		case "receber":
 			id := "todos"
 			// Verifica se o usuário passou um ID específico
@@ -211,6 +231,8 @@ func clienteHandler(conn net.Conn, nome string, scanner *bufio.Scanner) {
 			mu.Unlock()
 			fmt.Fprintf(conn, "[SISTEMA] Agora você recebe dados do sensor: %s\n", id)
 
+		// Comando para parar de receber os dados dos sensores, ele verifica se o cliente está escutando algum sensor, e se estiver, ele para de escutar
+		//  e remove ele da lista de interessados
 		case "parar":
 			mu.Lock()
 			//Verifica se o cliente está escutando algum sensor, antes de desconectar ele efetivamente
@@ -228,6 +250,8 @@ func clienteHandler(conn net.Conn, nome string, scanner *bufio.Scanner) {
 			mu.Unlock()
 			fmt.Fprintf(conn, "[TELEMETRIA] Você parou de receber dados do sensor %s!\n", idSensor)
 
+		// Comando utilizado para enviar um comando de ligar ou desligar para um atuador específico, verificando se o atuador existe e está ativo,
+		// e depois guardando a conexão do cliente em uma fila de espera para receber a resposta do atuador
 		case "atuar":
 			if len(partes) < 3 {
 				fmt.Fprintf(conn, "[ERRO] Comando inserido de maneira errada! Maneira correta: atuar <ID_Atuador> <ação>\n")
@@ -256,6 +280,7 @@ func clienteHandler(conn net.Conn, nome string, scanner *bufio.Scanner) {
 			fmt.Fprintf(connAtuador, "%s\n", acao)
 			fmt.Fprintf(conn, "[SISTEMA] Comando: %s foi enviado para o atuador: %s\n", acao, idAtuador)
 
+		// Comando para listar os sensores e atuadores disponíveis, verificando se eles estão ativos ou não, e mostrando para o cliente
 		case "listar":
 			mu.Lock()
 			var listaAtuadores []string
@@ -279,17 +304,20 @@ func clienteHandler(conn net.Conn, nome string, scanner *bufio.Scanner) {
 				//Lista os sensores disponíveis
 				fmt.Fprintf(conn, "[SISTEMA] Sensores disponíveis: %s\n", strings.Join(listaSensores, ", "))
 			}
-
+			//Verifica se há atuadores ativos no momento
 			if len(listaAtuadores) == 0 {
 				fmt.Fprintf(conn, "[SISTEMA] Nenhum atuador detectado na rede no momento.\n")
 			} else {
 				fmt.Fprintf(conn, "[SISTEMA] Atuadores disponíveis: %s\n", strings.Join(listaAtuadores, ", "))
 			}
 
+		// Encerra a conexão do cliente com o servidor, removendo ele da lista de clientes e da lista de interessados, caso ele esteja escutando algum sensor
 		case "sair":
 			fmt.Fprintf(conn, "[SISTEMA] %s se desconectou! Até logo.\n", nome)
 			fmt.Println("[USUÁRIO]", nome, "se desconectou")
 			return
+
+		// Comando para ajudar o cliente com os comandos disponíveis, explicando cada um deles
 		case "help":
 			fmt.Fprintf(conn, "[1] Receber dados do sensor: receber [ID], o ID deve ser um dos sensores disponíveis ao digitar listar\n"+
 				"[2] Parar de receber dados: 'parar', ele vai ser responsável por parada de receber os dados dos sensores\n"+
@@ -312,13 +340,15 @@ func clienteHandler(conn net.Conn, nome string, scanner *bufio.Scanner) {
 }
 
 // Caso o usuário digite CTRL + C no servidor, é essa função que vai fazer o tratamento de erro
-func tratamentoDeDesligamento() {
-	c := make(chan os.Signal, 1)
+// Implementa a ideia do graceful shutdown, onde o servidor avisa os clientes que ele está desligando e desconecta eles antes de finalizar o processo
+func encerrarSistema() {
+	sc := make(chan os.Signal, 1)
 	//É quem fica escutando caso o usuário dê CTRL + C, aí finaliza o processo
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(sc, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		<-c
+		// Aqui é onde o servidor avisa os clientes que ele está desligando, e depois desconecta eles, para então finalizar o processo
+		<-sc
 		fmt.Println("[SISTEMA] Finalizando o sistema...")
 		fmt.Println("[SISTEMA] Desconectando os clientes do servidor...")
 		mu.Lock()

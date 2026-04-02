@@ -10,6 +10,7 @@ import (
 )
 
 func main() {
+	//Estabelece a conexão TCP com o servidor para enviar os comandos e receber as respostas
 	conn, err := net.Dial("tcp", "servidor:8080")
 	if err != nil {
 		fmt.Println("[Cliente] Erro ao se conectar ao servidor!", err)
@@ -80,6 +81,7 @@ func main() {
 	}
 }
 
+// Função para imprimir o menu de opções para o usuário
 func imprimirMenu() {
 	fmt.Println("======= LISTA DE COMANDOS =======")
 	fmt.Println("[1] Receber dados do sensor: 'receber [id]'")
