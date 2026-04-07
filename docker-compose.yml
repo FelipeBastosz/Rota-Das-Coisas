@@ -65,10 +65,10 @@ services:
     depends_on:
       - servidor
 
-  cliente:
+  client:
     build:
       context: .
-      dockerfile: Client/Dockerfile
+      dockerfile: User/Dockerfile
     networks:
       - rota-net
     depends_on:
