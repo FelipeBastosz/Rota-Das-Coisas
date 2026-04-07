@@ -87,7 +87,8 @@ func main() {
 			delayInicio := time.Duration(rand.Intn(2000)) * time.Millisecond
 			time.Sleep(delayInicio)
 
-			conn, err := net.Dial("tcp", "localhost:8080")
+			endereco := fmt.Sprintf("%s:8080", ipServidor)
+			conn, err := net.Dial("tcp", endereco)
 			if err != nil {
 				fmt.Printf("[Bot_A2_%d] ERRO DE CONEXÃO: %v\n", clienteID, err)
 				return
