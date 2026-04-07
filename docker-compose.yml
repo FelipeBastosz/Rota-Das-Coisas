@@ -14,6 +14,7 @@ services:
     build:
       context: .
       dockerfile: Sensors/Dockerfile
+    container_name: sensor_01
     command: ["./sensor", "SENSOR_01"]
     networks:
       - rota-net
@@ -24,6 +25,7 @@ services:
     build:
       context: .
       dockerfile: Sensors/Dockerfile
+    container_name: sensor_02
     command: ["./sensor", "SENSOR_02"]
     networks:
       - rota-net
@@ -34,6 +36,7 @@ services:
     build:
       context: .
       dockerfile: Sensors/Dockerfile
+    container_name: sensor_03
     command: ["./sensor", "SENSOR_03"]
     networks:
       - rota-net
@@ -44,6 +47,7 @@ services:
     build:
       context: .
       dockerfile: Actuators/Dockerfile
+    container_name: atuador_01
     command: ["./actuator", "ATUADOR_LAMPADA"]
     networks:
       - rota-net
@@ -54,6 +58,7 @@ services:
     build:
       context: .
       dockerfile: Actuators/Dockerfile
+    container_name: atuador_02
     command: ["./actuator", "ATUADOR_AR_CONDICIONADO"]
     networks:
       - rota-net
