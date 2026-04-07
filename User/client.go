@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-var ipServidor = "172,16,201.9"
+var ipServidor = "172.16.201.9"
 
 func main() {
 	//Estabelece a conexão TCP com o servidor para enviar os comandos e receber as respostas
