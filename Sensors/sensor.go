@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+var ipServidor = "172.16.201.9"
+
 // Estrutura para representar os dados do sensor, com os campos ID, Temperatura, Umidade, Pressao, Ruido e Tempo
 type Sensor struct {
 	ID          string  `json:"ID"`
@@ -29,7 +31,9 @@ func main() {
 	id := strings.ToLower(os.Args[1])
 
 	// Configura o endereço do servidor UDP para enviar os dados dos sensores, e depois inicia a conexão UDP com o servidor
-	addr, err := net.ResolveUDPAddr("udp", "servidor:5000")
+	endereco := fmt.Sprintf("%s:5000", ipServidor)
+	addr, err := net.ResolveUDPAddr("udp", endereco)
+
 	if err != nil {
 		fmt.Println("[COMUNICAÇÃO UDP] Erro ao se conectar ao servidor")
 	}

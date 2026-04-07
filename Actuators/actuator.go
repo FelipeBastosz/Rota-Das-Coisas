@@ -21,6 +21,8 @@ func alterarModo(atuador *Atuador) {
 	atuador.ligado = !atuador.ligado
 }
 
+var ipServidor = "172.16.201.9"
+
 func main() {
 	//Verifica se o atuador tem um nome
 	if len(os.Args) < 2 {
@@ -33,7 +35,8 @@ func main() {
 	atuador := Atuador{ligado: false, id: id}
 
 	// Estabelece a conexão TCP com o servidor para receber os comandos
-	conn, err := net.Dial("tcp", "servidor:8080")
+	endereco := fmt.Sprintf("%s:8080", ipServidor)
+	conn, err := net.Dial("tcp", endereco)
 	if err != nil {
 		log.Fatalln("[ERRO] Erro ao conectar o atuador ao Servidor TCP:", err)
 	}

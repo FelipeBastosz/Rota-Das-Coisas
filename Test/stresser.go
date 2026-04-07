@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+var ipServidor = "172.16.201.9"
+
 func main() {
 	// Define a quantidade de clientes PARA CADA atuador (Total = 400 conexões)
 	totalClientes := 200
@@ -31,7 +33,8 @@ func main() {
 			delayInicio := time.Duration(rand.Intn(2000)) * time.Millisecond
 			time.Sleep(delayInicio)
 
-			conn, err := net.Dial("tcp", "servidor:8080")
+			endereco := fmt.Sprintf("%s:8080", ipServidor)
+			conn, err := net.Dial("tcp", endereco)
 			if err != nil {
 				fmt.Printf("[Bot_A1_%d] ERRO DE CONEXÃO: %v\n", clienteID, err)
 				return

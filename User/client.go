@@ -9,9 +9,12 @@ import (
 	"strings"
 )
 
+var ipServidor = "172,16,201.9"
+
 func main() {
 	//Estabelece a conexão TCP com o servidor para enviar os comandos e receber as respostas
-	conn, err := net.Dial("tcp", "servidor:8080")
+	endereco := fmt.Sprintf("%s:8080", ipServidor)
+	conn, err := net.Dial("tcp", endereco)
 	if err != nil {
 		fmt.Println("[Cliente] Erro ao se conectar ao servidor!", err)
 	}
