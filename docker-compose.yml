@@ -60,6 +60,30 @@ services:
     depends_on:
       - servidor
 
+  cliente:
+    build:
+      context: .
+      dockerfile: Client/Dockerfile
+    networks:
+      - rota-net
+    depends_on:
+      - servidor
+    stdin_open: true
+    tty: true
+    profiles:
+      - ferramentas
+
+  test:
+    build:
+      context: .
+      dockerfile: Test/Dockerfile
+    networks:
+      - rota-net
+    depends_on:
+      - servidor
+    profiles:
+      - ferramentas
+
 networks:
   rota-net:
     driver: bridge
