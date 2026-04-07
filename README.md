@@ -20,34 +20,102 @@ Projeto desenvolvido para a disciplina de Redes e Sistemas Distribuídos (PBL).
 * **Graceful Shutdown:** Encerramento seguro do servidor interceptando sinais do SO (`SIGTERM`), notificando clientes e fechando conexões antes da interrupção do processo.
 
 ---
+## 📡 Especificação do Protocolo
+
+Para garantir o isolamento e roteamento correto, o sistema implementa um protocolo rigoroso de *Handshake* e encapsulamento:
+
+* **Sensores (UDP):** Transmitem dados periódicos encapsulados em JSON contendo: `ID`, `Temperatura`, `Umidade`, `Pressao`, `Ruido` e `Tempo`.
+* **Atuadores (TCP):** Realizam o *handshake* enviando o prefixo obrigatório `ATUADOR|[ID_DO_ATUADOR]`. Ao executarem uma ação, devolvem uma resposta ao servidor com o prefixo `RESPOSTA|`.
+* **Clientes (TCP):** Identificam-se apenas com o nome de usuário e utilizam comandos (ex: `receber`, `atuar`).
+
+---
 
 ## 🏗️ Arquitetura do Sistema
 
-O ecossistema é dividido em 4 componentes principais:
+O sistema é dividido em 4 componentes principais:
 
-1. **Servidor (Broker):** O coração da rede. Escuta na porta `8080` (TCP) para clientes/atuadores e `5000` (UDP) para sensores.
-2. **Atuadores (Hardware):** Dispositivos simulados que recebem comandos do servidor para alterar o ambiente (ex: ligar um motor).
-3. **Sensores (Telemetria):** Dispositivos que fazem *broadcast* de dados (Temperatura, Umidade, Pressão, etc.) em tempo real via UDP.
-4. **Clientes (Monitores):** Usuários que se conectam ao servidor para ler os dados dos sensores ou enviar comandos aos atuadores.
+1. **Servidor (Broker):** Responsável por toda lógica do sistema. Escuta na porta `8080` (TCP) para clientes/atuadores e `5000` (UDP) para sensores.
+2. **Atuadores:** Dispositivos simulados que recebem comandos do servidor para alterar o ambiente (ex: ligar/desligar).
+3. **Sensores (Telemetria):** Dispositivos que enviam dados (Temperatura, Umidade, Pressão, etc.) em tempo real via UDP.
+4. **Clientes:** Usuários que se conectam ao servidor para ler os dados dos sensores ou enviar comandos aos atuadores.
 
 ---
 
 ## 🐳 Executando com Docker (Recomendado)
 
-O projeto é *Cloud-Native* e totalmente containerizado. A orquestração dos serviços é feita via Docker Compose, permitindo subir toda a infraestrutura com um único comando.
+A organização dos serviços é feita via Docker Compose, permitindo subir toda a arquitetura com um único comando.
 
 ### 1. Subir a Infraestrutura Completa
-Na raiz do projeto, onde está localizado o arquivo `docker-compose.yml`, execute:
+Na raiz do projeto `RotaDasCoisas`, onde está localizado o arquivo `docker-compose.yml`, execute:
 ```bash
 docker-compose up --build
 ```
-Isso iniciará automaticamente o Servidor Broker, instâncias de Sensores transmitindo dados e instâncias de Atuadores prontos para receber comandos, todos comunicando-se em uma rede Docker isolada.
+Isso iniciará automaticamente o Servidor, 3 instâncias de Sensores transmitindo dados e 2 instâncias de Atuadores prontos para receber comandos, todos comunicando-se em uma rede Docker isolada.
 ### 2. Encerrar o Sistema
 Para desligar todos os containers e limpar a rede:
 ```bash
 docker-compose down
 ```
+---
+### 3. Comandos Úteis de Monitoramento e Interação
+Enquanto o sistema estiver rodando, abra um novo terminal. Esses são os principais comandos para interagir com o sistema:
 
+#### Listar todos os containers ativos:
+Para ver o nome exato dos containers, o status e as portas alocadas:
+
+```bash
+docker ps
+```
+---
+
+#### Acompanhar os logs de tudo que está acontecendo em tempo real:
+Ver tudo que está acontecendo na rede
+```bash
+docker-compose logs -f
+```
+---
+
+#### Acompanhar logs de um container específico:
+Visualizar apenas os logs de um container específico, exemplo: O que o servidor está recebendo, os estados dos atuadores, etc.
+```bash
+docker logs -f <nome_do_container>
+```
+---
+#### Executar um novo Cliente interativo:
+Para criar um cliente que faça a interação com o Servidor, basta executar:
+```bash
+docker compose run --name <nome_cliente> cliente
+docker-compose run --rm cliente
+```
+
+#MEXER AQUI
+---
+#### Criar um novo container de atuador ou sensor:
+Criar um novo sensor:
+```bash
+docker-compose run -d --rm sensor-01 ./sensor <nome_sensor>
+```
+
+Criar um novo atuador:
+```bash
+docker-compose run -d --rm atuador-01 ./actuador <nome_atuador>
+```
+---
+#### Testar a Tolerância a Falhas (Parar um container):
+Caso deseje testar se o Broker detecta a queda de um sensor após 20 segundos, derrube o container dele propositalmente:
+
+```bash
+docker stop <nome_do_container_sensor>
+```
+---
+
+#### Reiniciar um container específico:
+Para ligar novamente um dispositivo que foi derrubado:
+
+```bash
+docker restart <nome_do_container>
+```
+---
 
 ##  🛠️ Como Executar (Localmente sem Docker)
 Caso prefira rodar os arquivos Go nativamente no seu terminal:
@@ -82,15 +150,23 @@ Uma vez conectado como cliente via TCP, você pode usar os seguintes comandos in
 
 
 ## 🧪 Teste de Estresse
-Para comprovar a resiliência do Scheduler do Go e das nossas filas Mutex, o repositório inclui um script de ataque controlado (stresser.go).
+Para comprovar a resistência do servidor e das filas de requisição Mutex, o repositório inclui um script de ataque controlado (stresser.go).
 
-Ele gera milhares de conexões TCP simultâneas simulando clientes reais, aplicando jitter (espalhamento) para evitar o bloqueio de sockets do SO host.
+Ele gera centenas de conexões TCP simultâneas simulando clientes reais, aplicando jitter (espalhamento) para evitar o bloqueio de sockets do SO host.
 
-Como executar: 
+Como executar:
+### Localmente:
+Caso esteja executando o código localmente sem o docker, com o servidor ligado e com dois atuadores chamados atuador_01 e atuador_02, execute:
    ```bash
     go run stresser.go
    ```
-Resultado: O servidor suporta e processa em fila cargas massivas de até 3.000 requisições simultâneas distribuídas entre múltiplos atuadores, sem crashes de memória ou perda de concorrência.
+### Docker: 
+Com a infraestrutura já rodando, abra um novo terminal e execute o teste com o comando:
+```bash
+docker-compose run --rm test
+```
+
+Dentro do código, você também pode inserir a quantidade desejada de "bots" que vão simular conexões, os testes foram comprovados e afirmados em até 6000 bots executando comandos ao mesmo tempo.
 
 ## 📚 Referências e Links Úteis
 
