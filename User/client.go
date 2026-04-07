@@ -47,6 +47,7 @@ func main() {
 
 	//Imprime o menu de opções
 	imprimirMenu()
+	fmt.Printf("Insira o comando para enviar ao servidor: ")
 
 	//Loop para enviar comandos ao servidor
 	for {
@@ -69,7 +70,7 @@ func main() {
 				cmd.Run()
 			}
 			imprimirMenu()
-			fmt.Println("Insira o comando para enviar ao servidor")
+			fmt.Printf("Insira o comando para enviar ao servidor: ")
 			continue
 		}
 
