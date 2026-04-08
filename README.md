@@ -4,9 +4,11 @@
 ![Docker](https://img.shields.io/badge/Docker-Pronto-2496ED?style=for-the-badge&logo=docker)
 ![Status](https://img.shields.io/badge/Status-Conclu%C3%ADdo-success?style=for-the-badge)
 ![Concorrência](https://img.shields.io/badge/Carga-3000%2B%20Conex%C3%B5es-orange?style=for-the-badge)
+![Protocolos](https://img.shields.io/badge/Protocolos-UDP_TCP-purple?style=for-the-badge)
+
 
 ## 📌 Sobre o Projeto
-Este projeto implementa um **Message Broker IoT concorrente em Golang**, capaz de gerenciar sensores e atuadores em uma arquitetura distribuída, suportando milhares de conexões simultâneas através de **goroutines e controle de concorrência com Mutex**.
+Este projeto implementa um **Message Broker IoT concorrente em Golang**, capaz de gerenciar sensores e atuadores em uma arquitetura distribuída, suportando centenas de conexões simultâneas através de **goroutines e controle de concorrência com Mutex**.
 
 Projeto desenvolvido para a disciplina de Redes e Sistemas Distribuídos (PBL).
 
@@ -215,7 +217,7 @@ Uma vez conectado como cliente via TCP, você pode usar os seguintes comandos in
 | Comando             | Descrição                                     | Exemplo                  |
 | ------------------- | --------------------------------------------- | ------------------------ |
 | `listar`            | Lista sensores e atuadores ativos             | `listar`                 |
-| `receber [id]`      | Escuta dados de um sensor específico ou todos | `receber sensor_01`    |
+| `receber [id]`      | Escuta dados de um sensor específico ou todos | `receber sensor_01`      |
 | `parar`             | Para de escutar os dados recebidos do sensor  | `parar`                  |
 | `atuar [id] [ação]` | Envia comando para um atuador (ligar/desligar)| `atuar atuador_01 ligar` |
 | `help`              | Mostra menu de ajuda                          | `help`                   |
