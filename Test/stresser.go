@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-var ipServidor = "172.16.201.9"
+var ipServidor = "192.168.15.13"
 
 func main() {
 	// Define a quantidade de clientes PARA CADA atuador (Total = 400 conexões)
@@ -23,7 +23,7 @@ func main() {
 	for i := 0; i < totalClientes; i++ {
 
 		// ==========================================
-		// --- GOROUTINE DO ATUADOR 01 ---
+		// --- GOROUTINE DO ATUADOR 01 e ATUADOR 02 ---
 		// ==========================================
 		wg.Add(1)
 		go func(clienteID int) {
