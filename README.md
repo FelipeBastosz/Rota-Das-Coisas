@@ -76,9 +76,8 @@ Você pode acompanhar essas métricas de duas formas:
 ### O que é contabilizado?
 * Comandos enviados pelos usuários (como `listar`, `receber` ou `atuar`).
 * Cada uma das centenas de interações disparadas pelos bots no teste de estresse.
-* O processo inicial de identificação (*handshake*) de novos clientes.
 
-Para garantir que nenhum dado se perca no meio de milhares de conexões simultâneas, foi utilizado o pacote `sync/atomic` do Go. Ele permite que o servidor some as requisições de forma "atômica". Na prática, isso significa que mesmo que dois bots enviem um comando exatamente no mesmo microssegundo, o contador não se atrapalha e evita a condição de corrida (*race condition*). Assim, o número que você vê na tela é sempre fiel à realidade.
+Para garantir que nenhum dado se perca no meio de milhares de conexões simultâneas, foi utilizado o pacote `sync/atomic` do Go. Ele permite que o servidor some as requisições de forma "atômica". Na prática, isso significa que mesmo que dois bots enviem um comando exatamente no mesmo milissegundo, o contador não se atrapalha e evita a condição de corrida (*race condition*). Assim, o número que você vê na tela é sempre fiel à realidade.
 
 ---
 
