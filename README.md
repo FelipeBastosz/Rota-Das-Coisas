@@ -63,6 +63,25 @@ O sistema é dividido em 4 componentes principais:
   <em>Figura 1 – Arquitetura distribuída do Message Broker IoT.</em>
 </p>
 
+
+## 📊 Monitoramento de Requisições (TCP)
+
+Para ter certeza de que o enfileiramento e o controle de concorrência estão dando certo, o Servidor conta com um monitor de requisições focado no protocolo **TCP**. Isso permite medir com precisão a carga de comandos que o servidor processa, especialmente durante os testes de estresse mais pesados.
+
+Você pode acompanhar essas métricas de duas formas:
+
+1.  **Direto no Servidor:** O console do Broker exibe automaticamente um resumo no terminal a cada 5 segundos, mostrando o volume acumulado de comandos.
+2.  **Pelo Cliente:** Qualquer usuário conectado pode digitar `requisicoes` para ver o total de interações que o servidor já processou até aquele momento.
+
+### O que é contabilizado?
+* Comandos enviados pelos usuários (como `listar`, `receber` ou `atuar`).
+* Cada uma das centenas de interações disparadas pelos bots no teste de estresse.
+* O processo inicial de identificação (*handshake*) de novos clientes.
+
+Para garantir que nenhum dado se perca no meio de milhares de conexões simultâneas, foi utilizado o pacote `sync/atomic` do Go. Ele permite que o servidor some as requisições de forma "atômica". Na prática, isso significa que mesmo que dois bots enviem um comando exatamente no mesmo microssegundo, o contador não se atrapalha e evita a condição de corrida (*race condition*). Assim, o número que você vê na tela é sempre fiel à realidade.
+
+---
+
 ## 📂 Estrutura do Projeto
 ```
 Rota-Das-Coisas
@@ -222,6 +241,9 @@ Uma vez conectado como cliente via TCP, você pode usar os seguintes comandos in
 | `atuar [id] [ação]` | Envia comando para um atuador (ligar/desligar)| `atuar atuador_01 ligar` |
 | `help`              | Mostra menu de ajuda                          | `help`                   |
 | `sair`              | Desconecta do servidor                        | `sair`                   |
+| `limpar`            | Limpa o terminal                              | `limpar`                 |
+| `requisicoes`          | Mostra quantas requisições o servidor processou | `requisicoes`                   |
+
 
 
 ## 🧪 Teste de Estresse
