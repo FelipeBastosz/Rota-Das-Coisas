@@ -48,7 +48,7 @@ services:
       context: .
       dockerfile: Actuators/Dockerfile
     container_name: atuador_01
-    command: ["./actuator", "atuador_02"]
+    command: ["./actuator", "atuador_01"]
     networks:
       - rota-net
     depends_on:
@@ -59,7 +59,7 @@ services:
       context: .
       dockerfile: Actuators/Dockerfile
     container_name: atuador_02
-    command: ["./actuator", "atuador_01"]
+    command: ["./actuator", "atuador_02"]
     networks:
       - rota-net
     depends_on:
