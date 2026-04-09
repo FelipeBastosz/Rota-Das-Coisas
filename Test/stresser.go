@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-var ipServidor = "192.168.15.13"
+var ipServidor = "172.16.201.9"
 
 func main() {
 	// Define a quantidade de clientes PARA CADA atuador (Total = 400 conexões)
