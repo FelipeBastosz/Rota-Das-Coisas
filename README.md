@@ -162,12 +162,12 @@ docker-compose run --rm client
 #### Criar um novo container de atuador ou sensor:
 Criar um novo sensor:
 ```bash
-docker-compose run -d --rm sensor-01 ./sensor <nome_sensor>
+docker-compose run -d --rm --no-deps sensor-01 ./sensor <nome_sensor>
 ```
 
 Criar um novo atuador:
 ```bash
-docker-compose run -d --rm atuador-01 ./actuator <nome_atuador>
+docker-compose run -d --rm --no-deps atuador-01 ./actuator <nome_atuador>
 ```
 ---
 #### Testar a Tolerância a Falhas (Parar um container):
