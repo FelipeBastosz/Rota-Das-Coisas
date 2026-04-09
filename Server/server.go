@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -22,6 +23,9 @@ type Sensor struct {
 	Ruido       float64 `json:"Ruido"`
 	Tempo       string  `json:"Tempo"`
 }
+
+// Contador para totalizar a quantidade de requisições processadas pelo servidor
+var TotalRequisicoes int64
 
 // Fila de clientes que ficam esperando a resposta do atuador.
 var filaAtuadores = make(map[string][]net.Conn)
@@ -41,6 +45,17 @@ var atuadores = make(map[string]net.Conn)
 var mu sync.Mutex //Vai ser utilizado para proteger o mapa de clientes, impedindo adicionar e retirar clientes
 
 func main() {
+	// Painel para mostrar quantas requisições já foram processadas
+	go func() {
+		for {
+			time.Sleep(5 * time.Second) // Atualiza o terminal a cada 5 segundos
+			quantidade := atomic.LoadInt64(&TotalRequisicoes)
+			if quantidade > 0 {
+				fmt.Printf("\n[Total Requisições] Total de comandos processados: %d\n\n", quantidade)
+			}
+		}
+	}()
+
 	// Fica esperando o ctrl + c para encerrar o sistema
 	encerrarSistema()
 
@@ -193,6 +208,8 @@ func clienteHandler(conn net.Conn, nome string, scanner *bufio.Scanner) {
 
 	// Loop de comandos
 	for scanner.Scan() {
+		//Cada comando executado é uma nova requisição, somando 1 ao contador
+		atomic.AddInt64(&TotalRequisicoes, 1)
 		//Junta tudo para verificar o comando inteiro, e depois separa para pegar apenas o comando
 		comandoInteiro := strings.ToLower(strings.TrimSpace(scanner.Text()))
 		partes := strings.Split(comandoInteiro, " ")
@@ -317,15 +334,21 @@ func clienteHandler(conn net.Conn, nome string, scanner *bufio.Scanner) {
 			fmt.Println("[USUÁRIO]", nome, "se desconectou")
 			return
 
-		// Comando para ajudar o cliente com os comandos disponíveis, explicando cada um deles
+		// Comando para mostrar quantas requisições o servidor processou
+		case "requisicoes":
+			qtd := atomic.LoadInt64(&TotalRequisicoes)
+			fmt.Fprintf(conn, "\n[Total de Requisições] Total de comandos processados até agora: %d\n\n", qtd)
+
+			// Comando para ajudar o cliente com os comandos disponíveis, explicando cada um deles
 		case "help":
 			fmt.Fprintf(conn, "[1] Receber dados do sensor: receber [ID], o ID deve ser um dos sensores disponíveis ao digitar listar\n"+
 				"[2] Parar de receber dados: 'parar', ele vai ser responsável por parada de receber os dados dos sensores\n"+
 				"[3] Listar os sensores e atuadores disponíveis: 'listar', é o comando utilizado para listar todos os sensores e atuadores disponíveis na rede\n"+
 				"[4] Enviar comando para o atuador: atuar [ID_Atuador] - nome do atuador a executar a ação [AÇÃO] ação a ser executada: ligar ou desligar\n"+
-				"[5] Desconectar do Servidor: 'sair', será o responsável por desconectar o cliente do servidor\n"+
+				"[5] Consultar carga do servidor: 'requisicoes', mostra quantas requisições o servidor processou.\n"+
 				"[6] Limpar terminal: 'limpar', vai limpar o terminal para o usuário\n"+
-				"[7] Ajuda: 'help', mostra um menu de ajuda mostrando como usar os comandos para o usuário\n")
+				"[7] Desconectar do Servidor: 'sair', será o responsável por desconectar o cliente do servidor\n"+
+				"[8] Ajuda: 'help', mostra um menu de ajuda mostrando como usar os comandos para o usuário\n")
 
 		default:
 			fmt.Fprintf(conn, "[Sistema] Comando inválido!\n")
